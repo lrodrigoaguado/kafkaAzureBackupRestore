@@ -1,11 +1,20 @@
 #  Backup and Restore Azure Blob Storage Source Connector for Confluent Platform 
 
+- [Backup and Restore Azure Blob Storage Source Connector for Confluent Platform](#backup-and-restore-azure-blob-storage-source-connector-for-confluent-platform)
+  - [References](#references)
+  - [Setup Connect](#setup-connect)
+  - [Sink](#sink)
+  - [Source](#source)
+  - [Cleanup](#cleanup)
+
+## References
+
 https://docs.confluent.io/kafka-connectors/azure-blob-storage-sink/current/overview.html#quick-start
 
 https://docs.confluent.io/kafka-connectors/azure-blob-storage-source/current/backup-and-restore/overview.html
 
 
-## Sink
+## Setup Connect
 
 Start containers.
 
@@ -16,20 +25,14 @@ docker compose up -d
 Then execute:
 
 ```bash
-docker compose exec -it connect bash
+docker compose exec kafka-connect-1 confluent-hub install --no-prompt confluentinc/kafka-connect-azure-blob-storage:latest
+docker compose exec kafka-connect-1 confluent-hub install --no-prompt confluentinc/kafka-connect-azure-blob-storage-source:latest
 ``` 
 
-Once inside the container execute:
+Restart connect:
 
 ```bash
-confluent-hub install confluentinc/kafka-connect-azure-blob-storage:latest
-```
-(Choose option 2 and after say yes to everything when prompted.)
-
-Exit and restart connect:
-
-```bash
-docker compose restart connect
+docker compose restart kafka-connect-1
 ```
 
 List connector plugins:
@@ -38,18 +41,18 @@ List connector plugins:
 curl localhost:8083/connector-plugins | jq
 ```
 
-You should see the io.confluent.connect.azure.blob.AzureBlobStorageSinkConnector installed.
+## Sink
 
 Lets create a topic named blob_topic:
 
 ```bash
-kafka-topics --bootstrap-server localhost:19092 --create --topic blob_topic --partitions 3 --replication-factor 3
+kafka-topics --bootstrap-server localhost:9091 --create --topic blob_topic --partitions 3 --replication-factor 1
 ```
 
 To import some data into our topic we execute:
 
 ```bash
-kafka-avro-console-producer --broker-list localhost:19092 --topic blob_topic \
+kafka-avro-console-producer --broker-list localhost:9091 --topic blob_topic \
 --property value.schema='{"type":"record","name":"myrecord","fields":[{"name":"f1","type":"string"}]}' --property parse.key=true --property key.separator=, --property key.serializer=org.apache.kafka.common.serialization.StringSerializer
 ```
 
@@ -81,7 +84,7 @@ curl -i -X PUT -H "Accept:application/json" \
       "tasks.max"                : "3",
       "flush.size"               : "1",
       "format.class"             : "io.confluent.connect.azure.blob.format.avro.AvroFormat",
-      "confluent.topic.bootstrap.servers": "kafka1:9092",
+      "confluent.topic.bootstrap.servers": "broker:19091",
       "schema.compatibility"    : "FORWARD",
       "partitioner.class"       : "io.confluent.connect.storage.partitioner.DefaultPartitioner",
       "azblob.account.name"     : "YOUR_ACCOUNT_NAME",
@@ -106,37 +109,10 @@ Starting a empty new environment run:
 docker compose up -d
 ```
 
-If we list the plugins of connect we should see we are starting again from scratch:
-
-```bash
-curl localhost:8083/connector-plugins | jq
-```
-
-So we connect to the connect shell again:
-
-```bash
-docker compose exec -it connect bash
-``` 
-
-And install now the source connector:
-
-```bash
-confluent-hub install confluentinc/kafka-connect-azure-blob-storage-source:latest
-``` 
-(when asked we enter 2 first and always yes after as before)
-
-Exit and restart connect:
-
-```bash
-docker compose restart connect
-```
-
-Listing again we should see the connector io.confluent.connect.azure.blob.storage.AzureBlobStorageSourceConnector.
-
 Lets create our topic named blob_topic:
 
 ```bash
-kafka-topics --bootstrap-server localhost:19092 --create --topic blob_topic --partitions 3 --replication-factor 3
+kafka-topics --bootstrap-server localhost:9091 --create --topic blob_topic --partitions 3 --replication-factor 1
 ```
 
 Let's create our connector (review command for having your account and key to access Azure Blob Storage):
@@ -147,9 +123,9 @@ curl -i -X PUT -H "Accept:application/json" \
   -d '{
       "connector.class"          : "io.confluent.connect.azure.blob.storage.AzureBlobStorageSourceConnector",
       "tasks.max"                : "3",
-      "confluent.topic.replication.factor" : "3",
+      "confluent.topic.replication.factor" : "1",
       "format.class"             : "io.confluent.connect.azure.blob.storage.format.avro.AvroFormat",
-      "confluent.topic.bootstrap.servers": "kafka1:9092",
+      "confluent.topic.bootstrap.servers": "broker:19091",
       "mode"                     : "RESTORE_BACKUP",
       "partitioner.class"       : "io.confluent.connect.storage.partitioner.DefaultPartitioner",
       "azblob.account.name"     : "YOUR_ACCOUNT_NAME",

@@ -1,0 +1,116 @@
+---
+services:
+    broker:
+        image: confluentinc/cp-server:${TAG}
+        hostname: broker
+        container_name: broker
+
+        healthcheck:
+            test: curl -fail --silent http://broker:8090/kafka/v3/clusters/ --output /dev/null || exit 1
+            interval: 10s
+            retries: 10
+            start_period: 20s
+        environment:
+            KAFKA_NODE_ID: 1
+            CLUSTER_ID: Nk018hRAQFytWskYqtQduw
+            KAFKA_PROCESS_ROLES: controller,broker
+            KAFKA_LISTENERS: CONTROLLER://broker:19091,PLAINTEXT://broker:19092,EXTERNAL://0.0.0.0:9091
+            KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,EXTERNAL:PLAINTEXT
+            KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+            KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+            KAFKA_CONTROLLER_QUORUM_VOTERS: 1@broker:19091
+            KAFKA_JMX_PORT: 9999
+            KAFKA_JMX_HOSTNAME: broker
+            KAFKA_BROKER_RACK: rack-0
+            KAFKA_DEFAULT_REPLICATION_FACTOR: 1
+            KAFKA_OFFSET_REPLICATION_FACTOR: 1
+            KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+            KAFKA_CONFLUENT_LICENSE_TOPIC_REPLICATION_FACTOR: 1
+            KAFKA_CONFLUENT_METADATA_TOPIC_REPLICATION_FACTOR: 1
+            KAFKA_CONFLUENT_BALANCER_TOPIC_REPLICATION_FACTOR: 1
+            KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+            KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+            KAFKA_MIN_INSYNC_REPLICAS: 1
+            KAFKA_METRIC_REPORTERS: io.confluent.metrics.reporter.ConfluentMetricsReporter
+            KAFKA_CONFLUENT_METRICS_REPORTER_TOPIC_REPLICAS: 1
+            KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://broker:19092, EXTERNAL://localhost:9091
+            KAFKA_CONFLUENT_METRICS_REPORTER_BOOTSTRAP_SERVERS: broker:19092
+        cap_add:
+            - NET_ADMIN
+        ports:
+            - 19091:19091
+            - 9091:9091
+
+    schema-registry-1:
+        image: confluentinc/cp-schema-registry:${TAG}
+        hostname: schema-registry-1
+        container_name: schema-registry-1
+        depends_on:
+            broker:
+                condition: service_healthy
+        environment:
+            SCHEMA_REGISTRY_HOST_NAME: schema-registry-1
+            SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS: broker:19092
+            SCHEMA_REGISTRY_LISTENERS: http://0.0.0.0:8081
+        ports:
+            - 8081:8081
+
+    kafka-connect-1:
+        image: confluentinc/cp-server-connect:${TAG}
+        hostname: kafka-connect-1
+        container_name: kafka-connect-1
+        volumes:
+          - ./plugins:/usr/share/confluent-hub-components
+        healthcheck:
+            test: curl -fail --silent http://kafka-connect-1:8083/connectors --output /dev/null || exit 1
+            interval: 10s
+            retries: 20
+            start_period: 20s
+        depends_on:
+            broker:
+                condition: service_healthy
+        environment:
+            CONNECT_REST_ADVERTISED_PORT: 8083
+            CONNECT_REST_PORT: 8083
+            CONNECT_LISTENERS: http://0.0.0.0:8083
+            CONNECT_BOOTSTRAP_SERVERS: broker:19092
+            CONNECT_REST_ADVERTISED_HOST_NAME: kafka-connect-1
+            CONNECT_GROUP_ID: kafka-connect
+            CONNECT_CONFIG_STORAGE_TOPIC: _connect-configs
+            CONNECT_OFFSET_STORAGE_TOPIC: _connect-offsets
+            CONNECT_STATUS_STORAGE_TOPIC: _connect-status
+            CONNECT_KEY_CONVERTER: org.apache.kafka.connect.storage.StringConverter
+            CONNECT_VALUE_CONVERTER: io.confluent.connect.avro.AvroConverter
+            CONNECT_EXACTLY_ONCE_SOURCE_SUPPORT: enabled
+            CONNECT_VALUE_CONVERTER_SCHEMA_REGISTRY_URL: http://schema-registry-1:8081
+            CONNECT_CONFIG_STORAGE_REPLICATION_FACTOR: 1
+            CONNECT_OFFSET_STORAGE_REPLICATION_FACTOR: 1
+            CONNECT_STATUS_STORAGE_REPLICATION_FACTOR: 1
+            CONNECT_OFFSET_FLUSH_INTERVAL_MS: 10000
+            CONNECT_PLUGIN_PATH: /usr/share/java,/usr/share/confluent-hub-components,/data/connect-plugin-jars
+        ports:
+            - 8083:8083
+
+    control-center:
+        image: confluentinc/cp-enterprise-control-center:${TAG}
+        hostname: control-center
+        container_name: control-center
+
+        depends_on:
+            broker:
+                condition: service_healthy
+            kafka-connect-1:
+                condition: service_healthy
+        environment:
+            CONTROL_CENTER_BOOTSTRAP_SERVERS: broker:19092
+            CONTROL_CENTER_SCHEMA_REGISTRY_URL: http://schema-registry-1:8081
+            CONTROL_CENTER_REPLICATION_FACTOR: 1
+            CONTROL_CENTER_CONNECT_CONNECT_CLUSTER: http://kafka-connect-1:8083
+            CONTROL_CENTER_INTERNAL_TOPICS_PARTITIONS: 1
+            CONTROL_CENTER_MONITORING_INTERCEPTOR_TOPIC_PARTITIONS: 1
+            CONFLUENT_METRICS_TOPIC_REPLICATION: 1
+            CONTROL_CENTER_COMMAND_TOPIC_REPLICATION: 1
+        ports:
+            - 9021:9021
+
+
