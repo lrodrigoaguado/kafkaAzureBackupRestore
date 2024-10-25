@@ -5,6 +5,10 @@
   - [Setup Connect](#setup-connect)
   - [Sink](#sink)
   - [Source](#source)
+  - [Test Source Parallelization](#test-source-parallelization)
+    - [Data Generation](#data-generation)
+    - [Sink](#sink-1)
+    - [Source](#source-1)
   - [Cleanup](#cleanup)
 
 ## References
@@ -27,6 +31,7 @@ Then execute:
 ```bash
 docker compose exec kafka-connect-1 confluent-hub install --no-prompt confluentinc/kafka-connect-azure-blob-storage:latest
 docker compose exec kafka-connect-1 confluent-hub install --no-prompt confluentinc/kafka-connect-azure-blob-storage-source:latest
+docker compose exec kafka-connect-1 confluent-hub install --no-prompt confluentinc/kafka-connect-datagen:latest
 ``` 
 
 Restart connect:
@@ -135,6 +140,105 @@ curl -i -X PUT -H "Accept:application/json" \
 ```
 
 We can see with control center http://localhost:9021/clusters all partitions populated for the topic.
+
+## Test Source Parallelization
+
+### Data Generation
+
+Let's create our topic:
+
+```shell
+kafka-topics --bootstrap-server localhost:9091 --topic customers --create --partitions 4 --replication-factor 1
+```
+
+And after create our data generation connector:
+
+```shell
+curl -i -X PUT -H "Accept:application/json" -H  "Content-Type:application/json" http://localhost:8083/connectors/my-datagen-source/config -d '{
+    "name" : "my-datagen-source",
+    "connector.class": "io.confluent.kafka.connect.datagen.DatagenConnector",
+    "kafka.topic" : "customers",
+    "output.data.format" : "AVRO",
+    "quickstart" : "SHOE_CUSTOMERS",
+    "tasks.max" : "1"
+}'
+```
+
+Let it be running for a while. And after pause the connector.
+
+### Sink
+
+Now let's create our sink as before.
+
+```shell
+curl -i -X PUT -H "Accept:application/json" \
+  -H  "Content-Type:application/json" http://localhost:8083/connectors/customers-sink/config \
+  -d '{
+      "connector.class"          : "io.confluent.connect.azure.blob.AzureBlobStorageSinkConnector",
+      "topics"                   : "customers",
+      "tasks.max"                : "4",
+      "flush.size"               : "1",
+      "format.class"             : "io.confluent.connect.azure.blob.format.avro.AvroFormat",
+      "confluent.topic.bootstrap.servers": "broker:19091",
+      "schema.compatibility"    : "FORWARD",
+      "partitioner.class"       : "io.confluent.connect.storage.partitioner.DefaultPartitioner",
+      "azblob.account.name"     : "YOUR_ACCOUNT_NAME",
+      "azblob.account.key"      : "YOUR_ACCOUNT_KEY",
+      "azblob.container.name"   : "YOUR_CONTAINER"
+      }'
+```
+
+Once Sink completed pause it.
+
+### Source
+
+Delete the topic customers and recreate it:
+
+```shell
+kafka-topics --bootstrap-server localhost:9091 --topic customers --create --partitions 4 --replication-factor 1
+```
+
+Let's execute the source with just one task first:
+
+```shell
+curl -i -X PUT -H "Accept:application/json" \
+  -H  "Content-Type:application/json" http://localhost:8083/connectors/customers-source/config \
+  -d '{
+      "connector.class"          : "io.confluent.connect.azure.blob.storage.AzureBlobStorageSourceConnector",
+      "tasks.max"                : "1",
+      "confluent.topic.replication.factor" : "1",
+      "format.class"             : "io.confluent.connect.azure.blob.storage.format.avro.AvroFormat",
+      "confluent.topic.bootstrap.servers": "broker:19091",
+      "mode"                     : "RESTORE_BACKUP",
+      "partitioner.class"       : "io.confluent.connect.storage.partitioner.DefaultPartitioner",
+      "azblob.account.name"     : "YOUR_ACCOUNT_NAME",
+      "azblob.account.key"      : "YOUR_ACCOUNT_KEY",
+      "azblob.container.name"   : "YOUR_CONTAINER"
+      }'
+```
+
+It took to us a bit less than 10 minutes to load the whole data.
+
+If we delete the connector, the topic and recreate the topic as before and now the connector as:
+
+```shell
+curl -i -X PUT -H "Accept:application/json" \
+  -H  "Content-Type:application/json" http://localhost:8083/connectors/customers-source2/config \
+  -d '{
+      "connector.class"          : "io.confluent.connect.azure.blob.storage.AzureBlobStorageSourceConnector",
+      "tasks.max"                : "4",
+      "confluent.topic.replication.factor" : "1",
+      "format.class"             : "io.confluent.connect.azure.blob.storage.format.avro.AvroFormat",
+      "confluent.topic.bootstrap.servers": "broker:19091",
+      "mode"                     : "RESTORE_BACKUP",
+      "partitioner.class"       : "io.confluent.connect.storage.partitioner.DefaultPartitioner",
+      "azblob.account.name"     : "YOUR_ACCOUNT_NAME",
+      "azblob.account.key"      : "YOUR_ACCOUNT_KEY",
+      "azblob.container.name"   : "YOUR_CONTAINER"
+      }'
+```
+
+It will take now more or less 3 minutes which is more or less aligned with the increase in number of tasks.
 
 ## Cleanup
 
