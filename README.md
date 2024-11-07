@@ -9,6 +9,7 @@
     - [Data Generation](#data-generation)
     - [Sink](#sink-1)
     - [Source](#source-1)
+  - [TimeBasedPartitioner](#timebasedpartitioner)
   - [Cleanup](#cleanup)
 
 ## References
@@ -164,7 +165,7 @@ curl -i -X PUT -H "Accept:application/json" -H  "Content-Type:application/json" 
 }'
 ```
 
-Let it be running for a while. And after pause the connector.
+Let it be running for a while (like 10 minutes). And after pause the connector.
 
 ### Sink
 
@@ -188,12 +189,15 @@ curl -i -X PUT -H "Accept:application/json" \
       }'
 ```
 
-Once Sink completed pause it.
+Once Sink completed pause it (it should take about 2 minutes)
 
 ### Source
 
 Delete the topic customers and recreate it:
 
+```shell
+kafka-topics --bootstrap-server localhost:9091 --delete --topic customers
+```
 ```shell
 kafka-topics --bootstrap-server localhost:9091 --topic customers --create --partitions 4 --replication-factor 1
 ```
@@ -217,11 +221,12 @@ curl -i -X PUT -H "Accept:application/json" \
       }'
 ```
 
-It took to us a bit less than 10 minutes to load the whole data.
+It took to us about 25 minutes to load the whole data.
 
-If we delete the connector, the topic and recreate the topic as before and now the connector as:
+If we delete the connector, the topic and recreate the topic as before and now the connector with 4 tasks:
 
 ```shell
+kafka-topics --bootstrap-server localhost:9091 --topic customers --create --partitions 4 --replication-factor 1
 curl -i -X PUT -H "Accept:application/json" \
   -H  "Content-Type:application/json" http://localhost:8083/connectors/customers-source2/config \
   -d '{
@@ -238,7 +243,126 @@ curl -i -X PUT -H "Accept:application/json" \
       }'
 ```
 
-It will take now more or less 3 minutes which is more or less aligned with the increase in number of tasks.
+It will take now more or less 10 minutes indicating the parallelization of restore through increased number of tasks.
+
+## TimeBasedPartitioner
+
+Let's reproduce our tests with `TimeBasedPartitioner`.
+
+So first we create a  topic and a new Datagen Source connector:
+
+```shell
+kafka-topics --bootstrap-server localhost:9091 --topic customerst --create --partitions 4 --replication-factor 1
+curl -i -X PUT -H "Accept:application/json" -H  "Content-Type:application/json" http://localhost:8083/connectors/my-datagen-sourcet/config -d '{
+    "name" : "my-datagen-sourcet",
+    "connector.class": "io.confluent.kafka.connect.datagen.DatagenConnector",
+    "kafka.topic" : "customerst",
+    "output.data.format" : "AVRO",
+    "quickstart" : "SHOE_CUSTOMERS",
+    "tasks.max" : "1"
+}'
+```
+
+Let it run again for about 10 minutes and pause our connector after.
+
+Now we can create a sink to Azure Blob Storage using a TimeBasedPartitioner:
+
+```shell
+curl -i -X PUT -H "Accept:application/json" \
+  -H  "Content-Type:application/json" http://localhost:8083/connectors/customerst-sink/config \
+  -d '{
+      "connector.class"          : "io.confluent.connect.azure.blob.AzureBlobStorageSinkConnector",
+      "topics"                   : "customerst",
+      "tasks.max"                : "4",
+      "flush.size"               : "1",
+      "format.class"             : "io.confluent.connect.azure.blob.format.avro.AvroFormat",
+      "confluent.topic.bootstrap.servers": "broker:19091",
+      "schema.compatibility"    : "FORWARD",
+      "partitioner.class"       : "io.confluent.connect.storage.partitioner.TimeBasedPartitioner",
+      "partition.duration.ms"   : "60000",
+      "timestamp.extractor"     : "Record",
+      "path.format"             : "YYYY/MM/dd/HH",
+      "locale"                  : "en-US",
+      "timezone"                : "Europe/Madrid",
+      "azblob.account.name"     : "YOUR_ACCOUNT_NAME",
+      "azblob.account.key"      : "YOUR_ACCOUNT_KEY",
+      "azblob.container.name"   : "YOUR_CONTAINER"
+      }'
+```
+
+This should take about 1 minute to sink all data.
+
+Pause the connector.
+
+Delete the topic customerst and recreate it:
+
+```shell
+kafka-topics --bootstrap-server localhost:9091 --delete --topic customerst
+```
+```shell
+kafka-topics --bootstrap-server localhost:9091 --topic customerst --create --partitions 4 --replication-factor 1
+```
+
+Let's delete first our other topic folders from Azure Blob Storage: blob_topic and customers. Use the Azure Storage Browser for that.
+
+Let's create now our source connector for restore with a single task:
+
+```shell
+curl -i -X PUT -H "Accept:application/json" \
+  -H  "Content-Type:application/json" http://localhost:8083/connectors/customerst-source/config \
+  -d '{
+      "connector.class"          : "io.confluent.connect.azure.blob.storage.AzureBlobStorageSourceConnector",
+      "tasks.max"                : "1",
+      "confluent.topic.replication.factor" : "1",
+      "format.class"             : "io.confluent.connect.azure.blob.storage.format.avro.AvroFormat",
+      "confluent.topic.bootstrap.servers": "broker:19091",
+      "mode"                     : "RESTORE_BACKUP",
+      "partitioner.class"       : "io.confluent.connect.storage.partitioner.TimeBasedPartitioner",
+      "partition.duration.ms"   : "60000",
+      "timestamp.extractor"     : "Record",
+      "path.format"             : "YYYY/MM/dd/HH",
+      "locale"                  : "en-US",
+      "timezone"                : "Europe/Madrid",
+      "azblob.account.name"     : "YOUR_ACCOUNT_NAME",
+      "azblob.account.key"      : "YOUR_ACCOUNT_KEY",
+      "azblob.container.name"   : "YOUR_CONTAINER"
+      }'
+```
+
+You will be able to see that is quite slow and on control center in incoming messages you should see that is doing one partition at a time, starting from 0, then 1, etc. Each partition taking almost 10 minutes to load. So 30-40 minutes overall. We can pause the connector and recreate the topic.
+
+```shell
+kafka-topics --bootstrap-server localhost:9091 --delete --topic customerst
+```
+```shell
+kafka-topics --bootstrap-server localhost:9091 --topic customerst --create --partitions 4 --replication-factor 1
+```
+
+And now create a new connector as before but with 4 tasks:
+
+```shell
+curl -i -X PUT -H "Accept:application/json" \
+  -H  "Content-Type:application/json" http://localhost:8083/connectors/customerst-source2/config \
+  -d '{
+      "connector.class"          : "io.confluent.connect.azure.blob.storage.AzureBlobStorageSourceConnector",
+      "tasks.max"                : "4",
+      "confluent.topic.replication.factor" : "1",
+      "format.class"             : "io.confluent.connect.azure.blob.storage.format.avro.AvroFormat",
+      "confluent.topic.bootstrap.servers": "broker:19091",
+      "mode"                     : "RESTORE_BACKUP",
+      "partitioner.class"       : "io.confluent.connect.storage.partitioner.TimeBasedPartitioner",
+      "partition.duration.ms"   : "60000",
+      "timestamp.extractor"     : "Record",
+      "path.format"             : "YYYY/MM/dd/HH",
+      "locale"                  : "en-US",
+      "timezone"                : "Europe/Madrid",
+      "azblob.account.name"     : "YOUR_ACCOUNT_NAME",
+      "azblob.account.key"      : "YOUR_ACCOUNT_KEY",
+      "azblob.container.name"   : "YOUR_CONTAINER"
+      }'
+```
+
+And we find the behaviour is basically the same. It's not clear what needs to be set to be able to do multitask/parallel restore using Azure Blob Storage connector when leveraging TimeBasedPartitioner. And if that is possible at all.
 
 ## Cleanup
 
