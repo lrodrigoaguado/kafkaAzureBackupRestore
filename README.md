@@ -2,6 +2,11 @@
 
 - [Backup and Restore Azure Blob Storage Source Connector for Confluent Platform](#backup-and-restore-azure-blob-storage-source-connector-for-confluent-platform)
   - [References](#references)
+  - [Setup Azure](#setup-azure)
+    - [Step 1: Sign in to Azure Portal](#step-1-sign-in-to-azure-portal)
+    - [Step 2: Create a Storage Account (if you don’t already have one)](#step-2-create-a-storage-account-if-you-dont-already-have-one)
+    - [Step 3: Create a Container](#step-3-create-a-container)
+    - [Step 4: Get Storage Account Key](#step-4-get-storage-account-key)
   - [Setup Connect](#setup-connect)
   - [Sink](#sink)
   - [Source](#source)
@@ -18,6 +23,40 @@ https://docs.confluent.io/kafka-connectors/azure-blob-storage-sink/current/overv
 
 https://docs.confluent.io/kafka-connectors/azure-blob-storage-source/current/backup-and-restore/overview.html
 
+## Setup Azure
+
+You will need:
+- `YOUR_ACCOUNT_NAME`: Name of your storage account
+- `YOUR_ACCOUNT_KEY`: Access key of your storage account
+- `YOUR_CONTAINER_NAME`: Name of the container you created
+
+### Step 1: Sign in to Azure Portal
+Go to https://portal.azure.com and log in with your Azure credentials.
+
+### Step 2: Create a Storage Account (if you don’t already have one)
+
+1. Search for Storage accounts in the search bar and select it.
+2. Click + Create.
+3. Choose:
+- Subscription
+- Resource group (create one if needed)
+- Storage account name (this will be your `YOUR_ACCOUNT_NAME`)
+- Region, Performance, and Redundancy options
+4. Click Review + Create, then Create
+
+Once deployed, go to the Storage account you just created.
+
+### Step 3: Create a Container
+1. In your storage account's left-side menu, select Containers under Data storage.
+2. Click + Container
+3. Enter a Name (e.g., mycontainer) → this is `YOUR_CONTAINER_NAME`
+4. Choose Public access level (usually Private unless you need public access).
+5. Click Create
+
+### Step 4: Get Storage Account Key
+1. In the storage account's menu, click Access keys (under Security + networking)
+2. You’ll see key1 and key2. Click Show keys to view the values.
+3. Copy the Key value (either key1 or key2) — this is your `YOUR_ACCOUNT_KEY`.
 
 ## Setup Connect
 
