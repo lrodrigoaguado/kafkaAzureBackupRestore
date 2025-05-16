@@ -535,7 +535,7 @@ References:
 - https://learn.microsoft.com/en-us/dotnet/api/azure.storage.blobs.models.blobitemproperties.lastmodified?view=azure-dotnet#azure-storage-blobs-models-blobitemproperties-lastmodified
 - https://learn.microsoft.com/en-us/cli/azure/storage/blob/copy?view=azure-cli-latest#az-storage-blob-copy-start
 
-All of this can also be done programatically through scripting or leveraging Azure language SDKs. Check this python example: https://learn.microsoft.com/en-us/azure/developer/python/sdk/azure-sdk-overview 
+All of this can also be done programatically through scripting or leveraging Azure language SDKs. (example: Python sdk https://learn.microsoft.com/en-us/azure/developer/python/sdk/azure-sdk-overview)
 
 ## Cleanup
 
