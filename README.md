@@ -1,6 +1,7 @@
 #  Backup and Restore Azure Blob Storage Source Connector for Confluent Platform 
 
 - [Backup and Restore Azure Blob Storage Source Connector for Confluent Platform](#backup-and-restore-azure-blob-storage-source-connector-for-confluent-platform)
+  - [Disclaimer](#disclaimer)
   - [References](#references)
   - [Setup Azure](#setup-azure)
     - [Step 1: Sign in to Azure Portal](#step-1-sign-in-to-azure-portal)
@@ -15,7 +16,14 @@
     - [Sink](#sink-1)
     - [Source](#source-1)
   - [TimeBasedPartitioner](#timebasedpartitioner)
+  - [Parallel Recovery with Default Partitioner and Between Dates](#parallel-recovery-with-default-partitioner-and-between-dates)
+    - [Avoiding having to validate too many files from Azure](#avoiding-having-to-validate-too-many-files-from-azure)
   - [Cleanup](#cleanup)
+
+## Disclaimer
+
+The code and/or instructions here available are **NOT** intended for production usage. 
+It's only meant to serve as an example or reference and does not replace the need to follow actual and official documentation of referenced products.
 
 ## References
 
@@ -402,6 +410,132 @@ curl -i -X PUT -H "Accept:application/json" \
 ```
 
 And we find the behaviour is basically the same. It's not clear what needs to be set to be able to do multitask/parallel restore using Azure Blob Storage connector when leveraging TimeBasedPartitioner. And if that is possible at all.
+
+## Parallel Recovery with Default Partitioner and Between Dates
+
+First make sure to cleanup your Blob Storage container. And remove connectors. Keep the `customers` topic with 4 partitions populated. Or populate again as before.
+
+Next run the sink connector but with an SMT to include message timestamp:
+
+```shell
+curl -i -X PUT -H "Accept:application/json" \
+  -H  "Content-Type:application/json" http://localhost:8083/connectors/customers-sink/config \
+  -d '{
+      "connector.class"          : "io.confluent.connect.azure.blob.AzureBlobStorageSinkConnector",
+      "topics"                   : "customers",
+      "tasks.max"                : "4",
+      "flush.size"               : "1",
+      "format.class"             : "io.confluent.connect.azure.blob.format.avro.AvroFormat",
+      "confluent.topic.bootstrap.servers": "broker:19091",
+      "schema.compatibility"    : "FORWARD",
+      "partitioner.class"       : "io.confluent.connect.storage.partitioner.DefaultPartitioner",
+      "transforms": "addTS",
+      "transforms.addTS.type": "org.apache.kafka.connect.transforms.InsertField$Value",
+      "transforms.addTS.timestamp.field": "event_timestamp",
+      "azblob.account.name"     : "YOUR_ACCOUNT_NAME",
+      "azblob.account.key"      : "YOUR_ACCOUNT_KEY",
+      "azblob.container.name"   : "YOUR_CONTAINER"
+      }'
+```
+
+**Important Notice:** If you already have a field with a timestamp more relevant than the event timestamp it wouldnt be required to include the event timestamp and you could leverage that field directly.
+
+Once everything has been uploaded you probably will have a long interval to pick a couple of minutes in between. In our case we have from more or less:
+- **1747400925841**: 20250516130845 (in `yyyyMMddHHmmss` format)
+- **1747401300569**: 20250516131500 (in `yyyyMMddHHmmss` format)
+
+First let's built our custom SMT library:
+
+```shell
+mvn clean install
+cp target/timestampBetween-1.0-SNAPSHOT-jar-with-dependencies.jar plugins
+```
+
+Now we can drop our environment and restart:
+
+```shell
+docker compose down -v
+docker compose up -d
+```
+
+And after confirm transformer is available to be used by executing:
+
+```shell
+docker compose logs kafka-connect-1 | grep FilterByFieldTimestamp
+```
+
+Now if we create the topic:
+
+```shell
+kafka-topics --bootstrap-server localhost:9091 --topic customers --create --partitions 4 --replication-factor 1
+```
+
+And after the source connector using our custom SMT with a specific date time interval:
+
+```shell
+curl -i -X PUT -H "Accept:application/json" \
+  -H  "Content-Type:application/json" http://localhost:8083/connectors/customers-source2/config \
+  -d '{
+      "connector.class"          : "io.confluent.connect.azure.blob.storage.AzureBlobStorageSourceConnector",
+      "tasks.max"                : "4",
+      "confluent.topic.replication.factor" : "1",
+      "format.class"             : "io.confluent.connect.azure.blob.storage.format.avro.AvroFormat",
+      "confluent.topic.bootstrap.servers": "broker:19091",
+      "mode"                     : "RESTORE_BACKUP",
+      "partitioner.class"       : "io.confluent.connect.storage.partitioner.DefaultPartitioner",
+      "transforms": "filterByTime",
+      "transforms.filterByTime.type": "io.confluent.csta.timestamp.transforms.FilterByFieldTimestamp",
+      "transforms.filterByTime.timestamp.field": "event_timestamp",
+      "transforms.filterByTime.start.datetime": "20250516131200",
+      "transforms.filterByTime.end.datetime": "20250516131400",
+      "azblob.account.name"     : "YOUR_ACCOUNT_NAME",
+      "azblob.account.key"      : "YOUR_ACCOUNT_KEY",
+      "azblob.container.name"   : "YOUR_CONTAINER"
+      }'
+```
+
+You will see only some of the messages coming in.
+
+If you want to guarantee the event time field is not restored you can do:
+
+```shell
+kafka-topics --bootstrap-server localhost:9091 --delete --topic customers
+kafka-topics --bootstrap-server localhost:9091 --topic customers --create --partitions 4 --replication-factor 1
+curl -i -X PUT -H "Accept:application/json" \
+  -H  "Content-Type:application/json" http://localhost:8083/connectors/customers-source3/config \
+  -d '{
+      "connector.class"          : "io.confluent.connect.azure.blob.storage.AzureBlobStorageSourceConnector",
+      "tasks.max"                : "4",
+      "confluent.topic.replication.factor" : "1",
+      "format.class"             : "io.confluent.connect.azure.blob.storage.format.avro.AvroFormat",
+      "confluent.topic.bootstrap.servers": "broker:19091",
+      "mode"                     : "RESTORE_BACKUP",
+      "partitioner.class"       : "io.confluent.connect.storage.partitioner.DefaultPartitioner",
+      "transforms": "filterByTime,dropField",
+      "transforms.filterByTime.type": "io.confluent.csta.timestamp.transforms.FilterByFieldTimestamp",
+      "transforms.filterByTime.timestamp.field": "event_timestamp",
+      "transforms.filterByTime.start.datetime": "20250516131200",
+      "transforms.filterByTime.end.datetime": "20250516131400",
+      "transforms.dropField.type": "org.apache.kafka.connect.transforms.ReplaceField$Value",
+      "transforms.dropField.blacklist": "event_timestamp",
+      "azblob.account.name"     : "YOUR_ACCOUNT_NAME",
+      "azblob.account.key"      : "YOUR_ACCOUNT_KEY",
+      "azblob.container.name"   : "YOUR_CONTAINER"
+      }'
+```
+
+This custom SMT is only meant to be an example of what you can do.
+
+### Avoiding having to validate too many files from Azure
+
+Besides having proper retention periods in the Azure Blob Storage you can also leverage copying only the possibly relevant files from one container to another as a previous step for the recovery. This way the overall event set will be much more limmited and the performance impact of the validation will be restricted just to double check that events really sit on your desired (sub)interval. In some scenarios this step alone may be even enough with no need to use the custom SMT.
+
+References:
+- https://learn.microsoft.com/en-us/cli/azure/storage/blob?view=azure-cli-latest#az-storage-blob-list (`lastModified` can potentially be used under query for filtering the blobs you are interested into copying - check next references)
+- https://learn.microsoft.com/en-us/dotnet/api/azure.storage.blobs.models.blobitemproperties.lastmodified?view=azure-dotnet#azure-storage-blobs-models-blobitemproperties-lastmodified
+- https://learn.microsoft.com/en-us/cli/azure/storage/blob/copy?view=azure-cli-latest#az-storage-blob-copy-start
+
+All of this can also be done programatically through scripting or leveraging Azure language SDKs. Check this python example: https://learn.microsoft.com/en-us/azure/developer/python/sdk/azure-sdk-overview 
 
 ## Cleanup
 
