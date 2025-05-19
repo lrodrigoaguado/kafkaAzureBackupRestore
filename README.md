@@ -502,7 +502,7 @@ The following table summarizes the main characteristics:
 
 | Partitioner                     | Parallelism | Ordering | Time based backup filtering                                   |
 | ------------------------------- | ----------- | -------- | ------------------------------------------------------------- |
-| DefaultPartitioner              | &#x2714;    | &#x2714; | &#x2718; (only possible if based on Azure last modified time) |
+| DefaultPartitioner              | $${\color{red}&#x2714;}$$ :white_check_mark:	| &#x2714; | &#x2718; (only possible if based on Azure last modified time) |
 | TimeBasedPartitioner            | &#x2718;    | &#x2714; | &#x2714; (based on folder names in storage)                   |
 | FieldPartitioner                | &#x2714;    | &#x2718; | &#x2714; (based on folder names in storage)                   |
 | DefaultPartitioner + custom SMT | &#x2714;    | &#x2714; | &#x2714; (based on custom SMT)                                |
