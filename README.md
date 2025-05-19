@@ -48,7 +48,7 @@ You will need a working Azure account and a local environment with docker, java 
 
 ## Setup Azure
 
-You will need:
+To run this demo, you will need:
 
 - `YOUR_ACCOUNT_NAME`: Name of your storage account
 - `YOUR_ACCOUNT_KEY`: Access key of your storage account
@@ -56,6 +56,12 @@ You will need:
 - `TEST2_CONTAINER_NAME`: Name of the container you will create for test 2
 - `TEST3_CONTAINER_NAME`: Name of the container you will create for test 3
 - `TEST4_CONTAINER_NAME`: Name of the container you will create for test 4
+
+Create environment variables with that names and the appropriate values for your Azure account in your session before executing the commands in the demo. If you are going to run the demo several times, populate the file "setup_env.sh" with the values and the run:
+
+```bash
+source ./setup_eenv.sh
+```
 
 ### Step 1: Sign in to Azure Portal
 
@@ -175,7 +181,8 @@ Now let's create our sink.
 ```bash
 curl -i -X PUT -H "Accept:application/json" \
   -H  "Content-Type:application/json" http://localhost:8083/connectors/default-partitioner-sink/config \
-  -d '{
+  -d "$(cat <<EOF | envsubst  '${YOUR_ACCOUNT_NAME} ${YOUR_ACCOUNT_KEY} ${TEST1_CONTAINER_NAME}'
+{
       "connector.class"                  : "io.confluent.connect.azure.blob.AzureBlobStorageSinkConnector",
       "topics"                           : "customer_data",
       "tasks.max"                        : "4",
@@ -184,10 +191,13 @@ curl -i -X PUT -H "Accept:application/json" \
       "confluent.topic.bootstrap.servers": "broker:19091",
       "schema.compatibility"             : "FORWARD",
       "partitioner.class"                : "io.confluent.connect.storage.partitioner.DefaultPartitioner",
-      "azblob.account.name"              : "YOUR_ACCOUNT_NAME",
-      "azblob.account.key"               : "YOUR_ACCOUNT_KEY",
-      "azblob.container.name"            : "TEST1_CONTAINER_NAME"
-      }'
+      "azblob.account.name"              : "\${YOUR_ACCOUNT_NAME}",
+      "azblob.account.key"               : "\${YOUR_ACCOUNT_KEY}",
+      "azblob.container.name"            : "\${TEST1_CONTAINER_NAME}"
+}
+EOF
+)"
+
 ```
 
 If successful, you will see that the curl command returns a 200 status, together with the configuration of the sink connector just created.
@@ -203,7 +213,8 @@ Let's execute now the source with just one task first:
 ```bash
 curl -i -X PUT -H "Accept:application/json" \
   -H  "Content-Type:application/json" http://localhost:8083/connectors/default-partitioner-source-1task/config \
-  -d '{
+  -d "$(cat <<EOF | envsubst '${YOUR_ACCOUNT_NAME} ${YOUR_ACCOUNT_KEY} ${TEST1_CONTAINER_NAME}'
+{
       "connector.class"                    : "io.confluent.connect.azure.blob.storage.AzureBlobStorageSourceConnector",
       "tasks.max"                          : "1",
       "confluent.topic.replication.factor" : "1",
@@ -211,14 +222,16 @@ curl -i -X PUT -H "Accept:application/json" \
       "confluent.topic.bootstrap.servers"  : "broker:19091",
       "mode"                               : "RESTORE_BACKUP",
       "partitioner.class"                  : "io.confluent.connect.storage.partitioner.DefaultPartitioner",
-      "azblob.account.name"                : "YOUR_ACCOUNT_NAME",
-      "azblob.account.key"                 : "YOUR_ACCOUNT_KEY",
-      "azblob.container.name"              : "TEST1_CONTAINER_NAME",
       "transforms"                         : "AddPrefix",
       "transforms.AddPrefix.type"          : "org.apache.kafka.connect.transforms.RegexRouter",
       "transforms.AddPrefix.regex"         : ".*",
-      "transforms.AddPrefix.replacement"   : "default_partitioner_source_1task_copy_of_$0"
-      }'
+      "transforms.AddPrefix.replacement"   : "default_partitioner_source_1task_copy_of_$0",
+      "azblob.account.name"                : "\${YOUR_ACCOUNT_NAME}",
+      "azblob.account.key"                 : "\${YOUR_ACCOUNT_KEY}",
+      "azblob.container.name"              : "\${TEST1_CONTAINER_NAME}"
+}
+EOF
+)"
 ```
 
 It can take around 25 minutes to load the whole data, depending on how much you let the datagen connector run.
@@ -230,7 +243,8 @@ If we create now the connector with 4 tasks:
 ```bash
 curl -i -X PUT -H "Accept:application/json" \
   -H  "Content-Type:application/json" http://localhost:8083/connectors/default-partitioner-source-4tasks/config \
-  -d '{
+  -d "$(cat <<EOF | envsubst '${YOUR_ACCOUNT_NAME} ${YOUR_ACCOUNT_KEY} ${TEST1_CONTAINER_NAME}'
+{
       "connector.class"                    : "io.confluent.connect.azure.blob.storage.AzureBlobStorageSourceConnector",
       "tasks.max"                          : "4",
       "confluent.topic.replication.factor" : "1",
@@ -238,14 +252,16 @@ curl -i -X PUT -H "Accept:application/json" \
       "confluent.topic.bootstrap.servers"  : "broker:19091",
       "mode"                               : "RESTORE_BACKUP",
       "partitioner.class"                  : "io.confluent.connect.storage.partitioner.DefaultPartitioner",
-      "azblob.account.name"                : "YOUR_ACCOUNT_NAME",
-      "azblob.account.key"                 : "YOUR_ACCOUNT_KEY",
-      "azblob.container.name"              : "TEST1_CONTAINER_NAME",
       "transforms"                         : "AddPrefix",
       "transforms.AddPrefix.type"          : "org.apache.kafka.connect.transforms.RegexRouter",
       "transforms.AddPrefix.regex"         : ".*",
-      "transforms.AddPrefix.replacement"   : "default_partitioner_source_4tasks_copy_of_$0"
-      }'
+      "transforms.AddPrefix.replacement"   : "default_partitioner_source_4tasks_copy_of_$0",
+      "azblob.account.name"                : "\${YOUR_ACCOUNT_NAME}",
+      "azblob.account.key"                 : "\${YOUR_ACCOUNT_KEY}",
+      "azblob.container.name"              : "\${TEST1_CONTAINER_NAME}"
+}
+EOF
+)"
 ```
 
 It will take now more or less 10 minutes indicating the parallelization of restore through increased number of tasks.
@@ -261,7 +277,8 @@ Create a sink to Azure Blob Storage using a TimeBasedPartitioner:
 ```bash
 curl -i -X PUT -H "Accept:application/json" \
   -H  "Content-Type:application/json" http://localhost:8083/connectors/timebased-partitioner-sink/config \
-  -d '{
+  -d "$(cat <<EOF | envsubst '${YOUR_ACCOUNT_NAME} ${YOUR_ACCOUNT_KEY} ${TEST2_CONTAINER_NAME}'
+{
       "connector.class"                  : "io.confluent.connect.azure.blob.AzureBlobStorageSinkConnector",
       "topics"                           : "customer_data",
       "tasks.max"                        : "4",
@@ -275,10 +292,12 @@ curl -i -X PUT -H "Accept:application/json" \
       "path.format"                      : "YYYY/MM/dd/HH/mm",
       "locale"                           : "en-US",
       "timezone"                         : "Europe/Madrid",
-      "azblob.account.name"              : "YOUR_ACCOUNT_NAME",
-      "azblob.account.key"               : "YOUR_ACCOUNT_KEY",
-      "azblob.container.name"            : "TEST2_CONTAINER_NAME"
-      }'
+      "azblob.account.name"              : "\${YOUR_ACCOUNT_NAME}",
+      "azblob.account.key"               : "\${YOUR_ACCOUNT_KEY}",
+      "azblob.container.name"            : "\${TEST2_CONTAINER_NAME}"
+}
+EOF
+)"
 ```
 
 This should take about 1 minute to sink all data.
@@ -294,7 +313,8 @@ Let's create now our source connector for restore with a single task:
 ```bash
 curl -i -X PUT -H "Accept:application/json" \
   -H  "Content-Type:application/json" http://localhost:8083/connectors/timebased-partitioner-source/config \
-  -d '{
+  -d "$(cat <<EOF | envsubst '${YOUR_ACCOUNT_NAME} ${YOUR_ACCOUNT_KEY} ${TEST2_CONTAINER_NAME}'
+{
       "connector.class"                    : "io.confluent.connect.azure.blob.storage.AzureBlobStorageSourceConnector",
       "tasks.max"                          : "4",
       "confluent.topic.replication.factor" : "1",
@@ -307,14 +327,16 @@ curl -i -X PUT -H "Accept:application/json" \
       "path.format"                        : "YYYY/MM/dd/HH/mm",
       "locale"                             : "en-US",
       "timezone"                           : "Europe/Madrid",
-      "azblob.account.name"                : "YOUR_ACCOUNT_NAME",
-      "azblob.account.key"                 : "YOUR_ACCOUNT_KEY",
-      "azblob.container.name"              : "TEST2_CONTAINER_NAME",
       "transforms"                         : "AddPrefix",
       "transforms.AddPrefix.type"          : "org.apache.kafka.connect.transforms.RegexRouter",
       "transforms.AddPrefix.regex"         : ".*",
-      "transforms.AddPrefix.replacement"   : "timebased_partitioner_copy_of_$0"
-      }'
+      "transforms.AddPrefix.replacement"   : "timebased_partitioner_copy_of_$0",
+      "azblob.account.name"                : "\${YOUR_ACCOUNT_NAME}",
+      "azblob.account.key"                 : "\${YOUR_ACCOUNT_KEY}",
+      "azblob.container.name"              : "\${TEST2_CONTAINER_NAME}"
+}
+EOF
+)"
 ```
 
 You will be able to see that is quite slow and on control center in incoming messages you should see that is doing one partition at a time, starting from 0, then 1, etc. even though we configured 4 tasks, the connector is creating only one, and processing the different partitions sequentially. Each partition taking almost 10 minutes to load. So 30-40 minutes overall. We can pause the connector when finished.
@@ -330,7 +352,8 @@ Next, run the sink connector. In this case, the sink creates a new field called 
 ```bash
 curl -i -X PUT -H "Accept:application/json" \
   -H  "Content-Type:application/json" http://localhost:8083/connectors/field-partitioner-sink/config \
-  -d '{
+  -d "$(cat <<EOF | envsubst '${YOUR_ACCOUNT_NAME} ${YOUR_ACCOUNT_KEY} ${TEST3_CONTAINER_NAME}'
+{
       "connector.class"                    : "io.confluent.connect.azure.blob.AzureBlobStorageSinkConnector",
       "topics"                             : "customer_data",
       "tasks.max"                          : "4",
@@ -341,17 +364,19 @@ curl -i -X PUT -H "Accept:application/json" \
       "partitioner.class"                  : "io.confluent.connect.storage.partitioner.FieldPartitioner",
       "partition.field.name"               : "formattedTS",
       "timestamp.extractor"                : "Record",
-      "azblob.account.name"                : "YOUR_ACCOUNT_NAME",
-      "azblob.account.key"                 : "YOUR_ACCOUNT_KEY",
-      "azblob.container.name"              : "TEST3_CONTAINER_NAME",
       "transforms"                         : "insertTS, formatTS",
-      "transforms.insertTS.type"           : "org.apache.kafka.connect.transforms.InsertField$Value",
+      "transforms.insertTS.type"           : "org.apache.kafka.connect.transforms.InsertField\$Value",
       "transforms.insertTS.timestamp.field": "formattedTS",
-      "transforms.formatTS.type"           : "org.apache.kafka.connect.transforms.TimestampConverter$Value",
+      "transforms.formatTS.type"           : "org.apache.kafka.connect.transforms.TimestampConverter\$Value",
       "transforms.formatTS.target.type"    : "string",
       "transforms.formatTS.field"          : "formattedTS",
-      "transforms.formatTS.format"         : "yyyyMMddHHmm"
-      }'
+      "transforms.formatTS.format"         : "yyyyMMddHHmm",
+      "azblob.account.name"                : "\${YOUR_ACCOUNT_NAME}",
+      "azblob.account.key"                 : "\${YOUR_ACCOUNT_KEY}",
+      "azblob.container.name"              : "\${TEST3_CONTAINER_NAME}"
+}
+EOF
+)"
 ```
 
 When the Sink connector runs, it will create data in the Azure container, in subfolders named "*formattedTS=yyyyMMddHHmm*". The granularity of the information in the folders can be adjusted by modifying the "transforms.formatTS.format" attribute value. The current configuration will create subfolders for each minute, but folders can be generated (for example) hourly or daily, using "*yyyyMMddHH*" or "*yyyyMMdd*", respectively.
@@ -361,7 +386,8 @@ After the information has been copied to the Blob Storage in Azure, we can launc
 ```bash
 curl -i -X PUT -H "Accept:application/json" \
   -H  "Content-Type:application/json" http://localhost:8083/connectors/field-partitioner-source/config \
-  -d '{
+  -d "$(cat <<EOF | envsubst '${YOUR_ACCOUNT_NAME} ${YOUR_ACCOUNT_KEY} ${TEST3_CONTAINER_NAME}'
+{
       "connector.class"                        : "io.confluent.connect.azure.blob.storage.AzureBlobStorageSourceConnector",
       "tasks.max"                              : "4",
       "topics"                                 : "customer_data",
@@ -372,16 +398,18 @@ curl -i -X PUT -H "Accept:application/json" \
       "partitioner.class"                      : "io.confluent.connect.storage.partitioner.FieldPartitioner",
       "partition.field.name"                   : "formattedTS",
       "timestamp.extractor"                    : "Record",
-      "azblob.account.name"                    : "YOUR_ACCOUNT_NAME",
-      "azblob.account.key"                     : "YOUR_ACCOUNT_KEY",
-      "azblob.container.name"                  : "TEST3_CONTAINER_NAME",
-      "transforms"                             : "AddPrefix,removeTimestampField",
+      "transforms"                             : "AddPrefix,removeTSField",
       "transforms.AddPrefix.type"              : "org.apache.kafka.connect.transforms.RegexRouter",
       "transforms.AddPrefix.regex"             : ".*",
-      "transforms.AddPrefix.replacement"       : "fieldbased_partitioner_copy_of_$0",
-      "transforms.removeTimestampField.type"   : "org.apache.kafka.connect.transforms.RemoveField$Value",
-      "transforms.removeTimestampField.fields" : "formattedTS"
-      }'
+      "transforms.AddPrefix.replacement"       : "fieldbased_partitioner_copy_of_\$0",
+      "transforms.removeTSField.type"          : "org.apache.kafka.connect.transforms.ReplaceField\$Value",
+      "transforms.removeTSField.blacklist"     : "formattedTS",
+      "azblob.account.name"                    : "\${YOUR_ACCOUNT_NAME}",
+      "azblob.account.key"                     : "\${YOUR_ACCOUNT_KEY}",
+      "azblob.container.name"                  : "\${TEST3_CONTAINER_NAME}"
+}
+EOF
+)"
 ```
 
 This will restore the contents of the Blob Storage in the Kafka cluster. A second SMT has been added to this example, that removes from the messages the field we created specifically for the partitioning purposes ("formattedTS"), so that the messages are restored exactly as they were originally.
@@ -399,7 +427,8 @@ Create the following sink connector with an SMT to include message timestamp:
 ```bash
 curl -i -X PUT -H "Accept:application/json" \
   -H  "Content-Type:application/json" http://localhost:8083/connectors/default-partitioner-sink-customSMT/config \
-  -d '{
+  -d "$(cat <<EOF | envsubst '${YOUR_ACCOUNT_NAME} ${YOUR_ACCOUNT_KEY} ${TEST4_CONTAINER_NAME}'
+{
       "connector.class"                  : "io.confluent.connect.azure.blob.AzureBlobStorageSinkConnector",
       "topics"                           : "customer_data",
       "tasks.max"                        : "4",
@@ -409,12 +438,14 @@ curl -i -X PUT -H "Accept:application/json" \
       "schema.compatibility"             : "FORWARD",
       "partitioner.class"                : "io.confluent.connect.storage.partitioner.DefaultPartitioner",
       "transforms"                       : "addTS",
-      "transforms.addTS.type"            : "org.apache.kafka.connect.transforms.InsertField$Value",
+      "transforms.addTS.type"            : "org.apache.kafka.connect.transforms.InsertField\$Value",
       "transforms.addTS.timestamp.field" : "event_timestamp",
-      "azblob.account.name"              : "YOUR_ACCOUNT_NAME",
-      "azblob.account.key"               : "YOUR_ACCOUNT_KEY",
-      "azblob.container.name"            : "TEST4_CONTAINER_NAME"
-      }'
+      "azblob.account.name"              : "\${YOUR_ACCOUNT_NAME}",
+      "azblob.account.key"               : "\${YOUR_ACCOUNT_KEY}",
+      "azblob.container.name"            : "\${TEST4_CONTAINER_NAME}"
+}
+EOF
+)"
 ```
 
 **Important Notice:** If you already have a field with a timestamp more relevant than the event timestamp it wouldn't be required to include the event timestamp and you could leverage that field directly.
@@ -429,7 +460,8 @@ And after the source connector using our custom SMT with a specific date time in
 ```bash
 curl -i -X PUT -H "Accept:application/json" \
   -H  "Content-Type:application/json" http://localhost:8083/connectors/default-partitioner-source-customSMT/config \
-  -d '{
+  -d "$(cat <<EOF | envsubst '${YOUR_ACCOUNT_NAME} ${YOUR_ACCOUNT_KEY} ${TEST4_CONTAINER_NAME}'
+{
       "connector.class"                        : "io.confluent.connect.azure.blob.storage.AzureBlobStorageSourceConnector",
       "tasks.max"                              : "4",
       "confluent.topic.replication.factor"     : "1",
@@ -440,17 +472,19 @@ curl -i -X PUT -H "Accept:application/json" \
       "transforms"                             : "AddPrefix,filterByTime,dropField",
       "transforms.AddPrefix.type"              : "org.apache.kafka.connect.transforms.RegexRouter",
       "transforms.AddPrefix.regex"             : ".*",
-      "transforms.AddPrefix.replacement"       : "default_partitioner_withSMT_copy_of_$0",
+      "transforms.AddPrefix.replacement"       : "default_partitioner_withSMT_copy_of_\$0",
       "transforms.filterByTime.type"           : "io.confluent.csta.timestamp.transforms.FilterByFieldTimestamp",
       "transforms.filterByTime.timestamp.field": "event_timestamp",
       "transforms.filterByTime.start.datetime" : "20250516131200",
       "transforms.filterByTime.end.datetime"   : "20250516131400",
-      "transforms.dropField.type"              : "org.apache.kafka.connect.transforms.ReplaceField$Value",
+      "transforms.dropField.type"              : "org.apache.kafka.connect.transforms.ReplaceField\$Value",
       "transforms.dropField.blacklist"         : "event_timestamp",
-      "azblob.account.name"                    : "YOUR_ACCOUNT_NAME",
-      "azblob.account.key"                     : "YOUR_ACCOUNT_KEY",
-      "azblob.container.name"                  : "TEST4_CONTAINER_NAME"
-      }'
+      "azblob.account.name"                    : "\${YOUR_ACCOUNT_NAME}",
+      "azblob.account.key"                     : "\${YOUR_ACCOUNT_KEY}",
+      "azblob.container.name"                  : "\${TEST4_CONTAINER_NAME}"
+}
+EOF
+)"
 ```
 
 You will see only some of the messages coming in, the rest are being filtered by the custom SMT that we put in place.
@@ -462,6 +496,9 @@ This custom SMT is only meant to be an example of what you can do.
 ---
 
 ## Summary
+The four alternatives shown present pros and cons and the specific use case should guide on which option to use.
+
+The following table summarizes the main characteristics:
 
 | Partitioner                     | Parallelism | Ordering | Time based backup filtering                                   |
 | ------------------------------- | ----------- | -------- | ------------------------------------------------------------- |

@@ -1,0 +1,8 @@
+#!/bin/bash
+
+export YOUR_ACCOUNT_NAME=""
+export YOUR_ACCOUNT_KEY=""
+export TEST1_CONTAINER_NAME=""
+export TEST2_CONTAINER_NAME=""
+export TEST3_CONTAINER_NAME=""
+export TEST4_CONTAINER_NAME=""
