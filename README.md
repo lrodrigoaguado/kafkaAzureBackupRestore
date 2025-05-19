@@ -25,7 +25,7 @@
 
 ## Objectives
 
-The objective of this repo is to test the different capabilities of the existing Partitioners for using Azure Blob Storage as a way to backup (and later recover) the data in a Kafka topic. For that, we will use Azure Blob Storage Sink and Source Connectors.
+The objective of this repo is to test the different capabilities of the existing Partitioners for using Azure Blob Storage as a way to backup and later recover the data in a Kafka topic. For that, we will use Azure Blob Storage Sink and Source Connectors. Ideally, the recovery process should allow the recovery of data belonging to certain dates only.
 
 ## Disclaimer
 
@@ -39,6 +39,7 @@ https://docs.confluent.io/kafka-connectors/azure-blob-storage-sink/current/overv
 https://docs.confluent.io/kafka-connectors/azure-blob-storage-source/current/backup-and-restore/overview.html
 
 ---
+
 # Initial Setup
 
 ## Prerequisites
@@ -51,10 +52,10 @@ You will need:
 
 - `YOUR_ACCOUNT_NAME`: Name of your storage account
 - `YOUR_ACCOUNT_KEY`: Access key of your storage account
-- `TEST1_CONTAINER_NAME`: Name of the container you created for test 1
-- `TEST2_CONTAINER_NAME`: Name of the container you created for test 2
-- `TEST3_CONTAINER_NAME`: Name of the container you created for test 3
-- `TEST4_CONTAINER_NAME`: Name of the container you created for test 4
+- `TEST1_CONTAINER_NAME`: Name of the container you will create for test 1
+- `TEST2_CONTAINER_NAME`: Name of the container you will create for test 2
+- `TEST3_CONTAINER_NAME`: Name of the container you will create for test 3
+- `TEST4_CONTAINER_NAME`: Name of the container you will create for test 4
 
 ### Step 1: Sign in to Azure Portal
 
@@ -189,13 +190,15 @@ curl -i -X PUT -H "Accept:application/json" \
       }'
 ```
 
-Once Sink completed, you can pause it either via web, or running:
+If successful, you will see that the curl command returns a 200 status, together with the configuration of the sink connector just created.
+
+Let the sink connector do its job, and once it is completed, you can pause it either via web, or running:
 
 ```bash
 curl -i -X PUT http://localhost:8083/connectors/default-partitioner-sink/pause
 ```
 
-Let's execute the source with just one task first:
+Let's execute now the source with just one task first:
 
 ```bash
 curl -i -X PUT -H "Accept:application/json" \
@@ -218,14 +221,13 @@ curl -i -X PUT -H "Accept:application/json" \
       }'
 ```
 
-It took to us about 25 minutes to load the whole data.
+It can take around 25 minutes to load the whole data, depending on how much you let the datagen connector run.
 
 Note that an SMT has been added here and in all the following source connectors for convenience. The "AddPrefix" transform modifies the name of the topic where the information will be restored, so that no loops exist if both the sink and source connectors are running simultaneously (the sink would be sending to Azure the information just restored by the source, generating duplicated messages).
 
-If we delete the connector, the topic and recreate the topic as before and now the connector with 4 tasks:
+If we create now the connector with 4 tasks:
 
 ```bash
-kafka-topics --bootstrap-server localhost:9091 --topic customers --create --partitions 4 --replication-factor 1
 curl -i -X PUT -H "Accept:application/json" \
   -H  "Content-Type:application/json" http://localhost:8083/connectors/default-partitioner-source-4tasks/config \
   -d '{
@@ -247,6 +249,8 @@ curl -i -X PUT -H "Accept:application/json" \
 ```
 
 It will take now more or less 10 minutes indicating the parallelization of restore through increased number of tasks.
+
+The number of active tasks can also be checked in the Concluent Control Center.
 
 ## Backup/Restore option 2: TimeBasedPartitioner
 
@@ -382,7 +386,7 @@ curl -i -X PUT -H "Accept:application/json" \
 
 This will restore the contents of the Blob Storage in the Kafka cluster. A second SMT has been added to this example, that removes from the messages the field we created specifically for the partitioning purposes ("formattedTS"), so that the messages are restored exactly as they were originally.
 
-However, it is important to note that, as per the documentation (https://docs.confluent.io/kafka-connectors/azure-blob-storage-source/current/backup-and-restore/overview.html#features):
+However, regarding the recovery of data, it is important to note that, as per the documentation (https://docs.confluent.io/kafka-connectors/azure-blob-storage-source/current/backup-and-restore/overview.html#features):
 
 > *If a FieldPartitioner is used, it isn’t possible to guarantee the order of these messages*
 
