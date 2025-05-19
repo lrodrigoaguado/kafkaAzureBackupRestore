@@ -21,7 +21,7 @@
   - [Backup/Restore option 4: Parallel Recovery with Default Partitioner and Between Dates](#backuprestore-option-4-parallel-recovery-with-default-partitioner-and-between-dates)
   - [Summary](#summary)
     - [Avoiding having to validate too many files from Azure](#avoiding-having-to-validate-too-many-files-from-azure)
-  - [Cleanup](#cleanup)
+- [Cleanup](#cleanup)
 
 ## Objectives
 
@@ -522,8 +522,7 @@ References:
 All of this can also be done programatically through scripting or leveraging Azure language SDKs. (example: Python sdk https://learn.microsoft.com/en-us/azure/developer/python/sdk/azure-sdk-overview)
 
 ---
-
-## Cleanup
+# Cleanup
 
 ```bash
 docker compose down -v
