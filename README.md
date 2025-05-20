@@ -141,12 +141,12 @@ curl localhost:8083/connector-plugins | jq
 Create all the topics that will be used along the demo:
 
 ```bash
-kafka-topics --bootstrap-server localhost:9091 --topic customer_data --create --partitions 4 --replication-factor 1
-kafka-topics --bootstrap-server localhost:9091 --topic default_partitioner_source_1task_copy_of_customer_data --create --partitions 4 --replication-factor 1
-kafka-topics --bootstrap-server localhost:9091 --topic default_partitioner_source_4tasks_copy_of_customer_data --create --partitions 4 --replication-factor 1
-kafka-topics --bootstrap-server localhost:9091 --topic timebased_partitioner_copy_of_customer_data --create --partitions 4 --replication-factor 1
-kafka-topics --bootstrap-server localhost:9091 --topic fieldbased_partitioner_copy_of_customer_data --create --partitions 4 --replication-factor 1
-kafka-topics --bootstrap-server localhost:9091 --topic default_partitioner_withSMT_copy_of_customer_data --create --partitions 4 --replication-factor 1
+kafka-topics --bootstrap-server localhost:9091 --topic customer-data --create --partitions 4 --replication-factor 1
+kafka-topics --bootstrap-server localhost:9091 --topic default-partitioner-source-1task-copy-of-customer-data --create --partitions 4 --replication-factor 1
+kafka-topics --bootstrap-server localhost:9091 --topic default-partitioner-source-4tasks-copy-of-customer-data --create --partitions 4 --replication-factor 1
+kafka-topics --bootstrap-server localhost:9091 --topic timebased-partitioner-copy-of-customer-data --create --partitions 4 --replication-factor 1
+kafka-topics --bootstrap-server localhost:9091 --topic fieldbased-partitioner-copy-of-customer-data --create --partitions 4 --replication-factor 1
+kafka-topics --bootstrap-server localhost:9091 --topic default-partitioner-withSMT-copy-of-customer-data --create --partitions 4 --replication-factor 1
 ```
 
 ---
@@ -161,7 +161,7 @@ First, let's create our data generation connector to populate the demo topic:
 curl -i -X PUT -H "Accept:application/json" -H  "Content-Type:application/json" http://localhost:8083/connectors/my-datagen-source/config -d '{
     "name" : "my-datagen-source",
     "connector.class": "io.confluent.kafka.connect.datagen.DatagenConnector",
-    "kafka.topic" : "customer_data",
+    "kafka.topic" : "customer-data",
     "output.data.format" : "AVRO",
     "quickstart" : "SHOE_CUSTOMERS",
     "tasks.max" : "1"
@@ -184,7 +184,7 @@ curl -i -X PUT -H "Accept:application/json" \
   -d "$(cat <<EOF | envsubst  '${YOUR_ACCOUNT_NAME} ${YOUR_ACCOUNT_KEY} ${TEST1_CONTAINER_NAME}'
 {
       "connector.class"                  : "io.confluent.connect.azure.blob.AzureBlobStorageSinkConnector",
-      "topics"                           : "customer_data",
+      "topics"                           : "customer-data",
       "tasks.max"                        : "4",
       "flush.size"                       : "1",
       "format.class"                     : "io.confluent.connect.azure.blob.format.avro.AvroFormat",
@@ -200,7 +200,7 @@ EOF
 
 ```
 
-If successful, you will see that the curl command returns a 200 status, together with the configuration of the sink connector just created.
+If successful, you will see that the curl command returns a 201 status, together with the configuration of the sink connector just created.
 
 Let the sink connector do its job, and once it is completed, you can pause it either via web, or running:
 
@@ -225,7 +225,7 @@ curl -i -X PUT -H "Accept:application/json" \
       "transforms"                         : "AddPrefix",
       "transforms.AddPrefix.type"          : "org.apache.kafka.connect.transforms.RegexRouter",
       "transforms.AddPrefix.regex"         : ".*",
-      "transforms.AddPrefix.replacement"   : "default_partitioner_source_1task_copy_of_$0",
+      "transforms.AddPrefix.replacement"   : "default-partitioner-source-1task-copy-of-$0",
       "azblob.account.name"                : "\${YOUR_ACCOUNT_NAME}",
       "azblob.account.key"                 : "\${YOUR_ACCOUNT_KEY}",
       "azblob.container.name"              : "\${TEST1_CONTAINER_NAME}"
@@ -255,7 +255,7 @@ curl -i -X PUT -H "Accept:application/json" \
       "transforms"                         : "AddPrefix",
       "transforms.AddPrefix.type"          : "org.apache.kafka.connect.transforms.RegexRouter",
       "transforms.AddPrefix.regex"         : ".*",
-      "transforms.AddPrefix.replacement"   : "default_partitioner_source_4tasks_copy_of_$0",
+      "transforms.AddPrefix.replacement"   : "default-partitioner-source-4tasks-copy-of-$0",
       "azblob.account.name"                : "\${YOUR_ACCOUNT_NAME}",
       "azblob.account.key"                 : "\${YOUR_ACCOUNT_KEY}",
       "azblob.container.name"              : "\${TEST1_CONTAINER_NAME}"
@@ -280,7 +280,7 @@ curl -i -X PUT -H "Accept:application/json" \
   -d "$(cat <<EOF | envsubst '${YOUR_ACCOUNT_NAME} ${YOUR_ACCOUNT_KEY} ${TEST2_CONTAINER_NAME}'
 {
       "connector.class"                  : "io.confluent.connect.azure.blob.AzureBlobStorageSinkConnector",
-      "topics"                           : "customer_data",
+      "topics"                           : "customer-data",
       "tasks.max"                        : "4",
       "flush.size"                       : "1",
       "format.class"                     : "io.confluent.connect.azure.blob.format.avro.AvroFormat",
@@ -330,7 +330,7 @@ curl -i -X PUT -H "Accept:application/json" \
       "transforms"                         : "AddPrefix",
       "transforms.AddPrefix.type"          : "org.apache.kafka.connect.transforms.RegexRouter",
       "transforms.AddPrefix.regex"         : ".*",
-      "transforms.AddPrefix.replacement"   : "timebased_partitioner_copy_of_$0",
+      "transforms.AddPrefix.replacement"   : "timebased-partitioner-copy-of-$0",
       "azblob.account.name"                : "\${YOUR_ACCOUNT_NAME}",
       "azblob.account.key"                 : "\${YOUR_ACCOUNT_KEY}",
       "azblob.container.name"              : "\${TEST2_CONTAINER_NAME}"
@@ -355,7 +355,7 @@ curl -i -X PUT -H "Accept:application/json" \
   -d "$(cat <<EOF | envsubst '${YOUR_ACCOUNT_NAME} ${YOUR_ACCOUNT_KEY} ${TEST3_CONTAINER_NAME}'
 {
       "connector.class"                    : "io.confluent.connect.azure.blob.AzureBlobStorageSinkConnector",
-      "topics"                             : "customer_data",
+      "topics"                             : "customer-data",
       "tasks.max"                          : "4",
       "flush.size"                         : "1",
       "format.class"                       : "io.confluent.connect.azure.blob.format.avro.AvroFormat",
@@ -390,7 +390,7 @@ curl -i -X PUT -H "Accept:application/json" \
 {
       "connector.class"                        : "io.confluent.connect.azure.blob.storage.AzureBlobStorageSourceConnector",
       "tasks.max"                              : "4",
-      "topics"                                 : "customer_data",
+      "topics"                                 : "customer-data",
       "confluent.topic.replication.factor"     : "1",
       "format.class"                           : "io.confluent.connect.azure.blob.storage.format.avro.AvroFormat",
       "confluent.topic.bootstrap.servers"      : "broker:19091",
@@ -401,7 +401,7 @@ curl -i -X PUT -H "Accept:application/json" \
       "transforms"                             : "AddPrefix,removeTSField",
       "transforms.AddPrefix.type"              : "org.apache.kafka.connect.transforms.RegexRouter",
       "transforms.AddPrefix.regex"             : ".*",
-      "transforms.AddPrefix.replacement"       : "fieldbased_partitioner_copy_of_\$0",
+      "transforms.AddPrefix.replacement"       : "fieldbased-partitioner-copy-of-\$0",
       "transforms.removeTSField.type"          : "org.apache.kafka.connect.transforms.ReplaceField\$Value",
       "transforms.removeTSField.blacklist"     : "formattedTS",
       "azblob.account.name"                    : "\${YOUR_ACCOUNT_NAME}",
@@ -430,7 +430,7 @@ curl -i -X PUT -H "Accept:application/json" \
   -d "$(cat <<EOF | envsubst '${YOUR_ACCOUNT_NAME} ${YOUR_ACCOUNT_KEY} ${TEST4_CONTAINER_NAME}'
 {
       "connector.class"                  : "io.confluent.connect.azure.blob.AzureBlobStorageSinkConnector",
-      "topics"                           : "customer_data",
+      "topics"                           : "customer-data",
       "tasks.max"                        : "4",
       "flush.size"                       : "1",
       "format.class"                     : "io.confluent.connect.azure.blob.format.avro.AvroFormat",
@@ -472,7 +472,7 @@ curl -i -X PUT -H "Accept:application/json" \
       "transforms"                             : "AddPrefix,filterByTime,dropField",
       "transforms.AddPrefix.type"              : "org.apache.kafka.connect.transforms.RegexRouter",
       "transforms.AddPrefix.regex"             : ".*",
-      "transforms.AddPrefix.replacement"       : "default_partitioner_withSMT_copy_of_\$0",
+      "transforms.AddPrefix.replacement"       : "default-partitioner-withSMT-copy-of-\$0",
       "transforms.filterByTime.type"           : "io.confluent.csta.timestamp.transforms.FilterByFieldTimestamp",
       "transforms.filterByTime.timestamp.field": "event_timestamp",
       "transforms.filterByTime.start.datetime" : "20250516131200",
