@@ -158,7 +158,7 @@ kafka-topics --bootstrap-server localhost:9091 --topic default-partitioner-withS
 First, let's create our data generation connector to populate the demo topic:
 
 ```bash
-curl -i -X PUT -H "Accept:application/json" -H  "Content-Type:application/json" http://localhost:8083/connectors/my-datagen-source/config -d '{
+curl -s -D - -o /dev/null -X PUT -H "Accept:application/json" -H  "Content-Type:application/json" http://localhost:8083/connectors/my-datagen-source/config -d '{
     "name" : "my-datagen-source",
     "connector.class": "io.confluent.kafka.connect.datagen.DatagenConnector",
     "kafka.topic" : "customer-data",
@@ -179,7 +179,7 @@ curl -i -X PUT http://localhost:8083/connectors/my-datagen-source/pause
 Now let's create our sink.
 
 ```bash
-curl -i -X PUT -H "Accept:application/json" \
+curl -s -D - -o /dev/null -X PUT -H "Accept:application/json" \
   -H  "Content-Type:application/json" http://localhost:8083/connectors/default-partitioner-sink/config \
   -d "$(cat <<EOF | envsubst  '${YOUR_ACCOUNT_NAME} ${YOUR_ACCOUNT_KEY} ${TEST1_CONTAINER_NAME}'
 {
@@ -211,7 +211,7 @@ curl -i -X PUT http://localhost:8083/connectors/default-partitioner-sink/pause
 Let's execute now the source with just one task first:
 
 ```bash
-curl -i -X PUT -H "Accept:application/json" \
+curl -s -D - -o /dev/null -X PUT -H "Accept:application/json" \
   -H  "Content-Type:application/json" http://localhost:8083/connectors/default-partitioner-source-1task/config \
   -d "$(cat <<EOF | envsubst '${YOUR_ACCOUNT_NAME} ${YOUR_ACCOUNT_KEY} ${TEST1_CONTAINER_NAME}'
 {
@@ -241,7 +241,7 @@ Note that an SMT has been added here and in all the following source connectors 
 If we create now the connector with 4 tasks:
 
 ```bash
-curl -i -X PUT -H "Accept:application/json" \
+curl -s -D - -o /dev/null -X PUT -H "Accept:application/json" \
   -H  "Content-Type:application/json" http://localhost:8083/connectors/default-partitioner-source-4tasks/config \
   -d "$(cat <<EOF | envsubst '${YOUR_ACCOUNT_NAME} ${YOUR_ACCOUNT_KEY} ${TEST1_CONTAINER_NAME}'
 {
@@ -275,7 +275,7 @@ Let's reproduce our tests with `TimeBasedPartitioner`.
 Create a sink to Azure Blob Storage using a TimeBasedPartitioner:
 
 ```bash
-curl -i -X PUT -H "Accept:application/json" \
+curl -s -D - -o /dev/null -X PUT -H "Accept:application/json" \
   -H  "Content-Type:application/json" http://localhost:8083/connectors/timebased-partitioner-sink/config \
   -d "$(cat <<EOF | envsubst '${YOUR_ACCOUNT_NAME} ${YOUR_ACCOUNT_KEY} ${TEST2_CONTAINER_NAME}'
 {
@@ -311,7 +311,8 @@ curl -i -X PUT http://localhost:8083/connectors/timebased-partitioner-sink/pause
 Let's create now our source connector for restore with a single task:
 
 ```bash
-curl -i -X PUT -H "Accept:application/json" \
+curl -s -D - -o /dev/null \
+ -X PUT -H "Accept:application/json" \
   -H  "Content-Type:application/json" http://localhost:8083/connectors/timebased-partitioner-source/config \
   -d "$(cat <<EOF | envsubst '${YOUR_ACCOUNT_NAME} ${YOUR_ACCOUNT_KEY} ${TEST2_CONTAINER_NAME}'
 {
@@ -350,7 +351,7 @@ curl -i -X PUT http://localhost:8083/connectors/timebased-partitioner-source/pau
 Next, run the sink connector. In this case, the sink creates a new field called "formattedTS" that will be used for partitioning:
 
 ```bash
-curl -i -X PUT -H "Accept:application/json" \
+curl -s -D - -o /dev/null -X PUT -H "Accept:application/json" \
   -H  "Content-Type:application/json" http://localhost:8083/connectors/field-partitioner-sink/config \
   -d "$(cat <<EOF | envsubst '${YOUR_ACCOUNT_NAME} ${YOUR_ACCOUNT_KEY} ${TEST3_CONTAINER_NAME}'
 {
@@ -384,7 +385,7 @@ When the Sink connector runs, it will create data in the Azure container, in sub
 After the information has been copied to the Blob Storage in Azure, we can launch the Source connector with this command:
 
 ```bash
-curl -i -X PUT -H "Accept:application/json" \
+curl -s -D - -o /dev/null -X PUT -H "Accept:application/json" \
   -H  "Content-Type:application/json" http://localhost:8083/connectors/field-partitioner-source/config \
   -d "$(cat <<EOF | envsubst '${YOUR_ACCOUNT_NAME} ${YOUR_ACCOUNT_KEY} ${TEST3_CONTAINER_NAME}'
 {
@@ -425,7 +426,7 @@ So the order of the messages in the restored topic could not be exactly the same
 Create the following sink connector with an SMT to include message timestamp:
 
 ```bash
-curl -i -X PUT -H "Accept:application/json" \
+curl -s -D - -o /dev/null -X PUT -H "Accept:application/json" \
   -H  "Content-Type:application/json" http://localhost:8083/connectors/default-partitioner-sink-customSMT/config \
   -d "$(cat <<EOF | envsubst '${YOUR_ACCOUNT_NAME} ${YOUR_ACCOUNT_KEY} ${TEST4_CONTAINER_NAME}'
 {
@@ -458,7 +459,7 @@ Once everything has been uploaded you probably will have a long interval to pick
 And after the source connector using our custom SMT with a specific date time interval:
 
 ```bash
-curl -i -X PUT -H "Accept:application/json" \
+curl -s -D - -o /dev/null -X PUT -H "Accept:application/json" \
   -H  "Content-Type:application/json" http://localhost:8083/connectors/default-partitioner-source-customSMT/config \
   -d "$(cat <<EOF | envsubst '${YOUR_ACCOUNT_NAME} ${YOUR_ACCOUNT_KEY} ${TEST4_CONTAINER_NAME}'
 {
@@ -500,12 +501,12 @@ The four alternatives shown present pros and cons and the specific use case shou
 
 The following table summarizes the main characteristics:
 
-| Partitioner                     | Parallelism | Ordering | Time based backup filtering                                   |
-| ------------------------------- | ----------- | -------- | ------------------------------------------------------------- |
-| DefaultPartitioner              | $${\color{lightgreen}&#x2714;}$$ | $${\color{lightgreen}&#x2714;}$$  | $${\color{red}&#x2718;}$$ (only possible relying on Azure last modified time) |
-| TimeBasedPartitioner            | $${\color{red}&#x2718;}$$    | $${\color{lightgreen}&#x2714;}$$  | $${\color{lightgreen}&#x2714;}$$  (based on folder names in storage)                   |
-| FieldPartitioner                | $${\color{lightgreen}&#x2714;}$$     | $${\color{red}&#x2718;}$$ | $${\color{lightgreen}&#x2714;}$$  (based on folder names in storage)                   |
-| DefaultPartitioner + custom SMT | $${\color{lightgreen}&#x2714;}$$     | $${\color{lightgreen}&#x2714;}$$  | $${\color{lightgreen}&#x2714;}$$  (based on custom SMT)                                |
+| Partitioner                     | Parallelism                          | Ordering                          | Time based backup filtering                                                   |
+| ------------------------------- | ------------------------------------ | --------------------------------  | ----------------------------------------------------------------------------- |
+| DefaultPartitioner              | $${\color{lightgreen}&#x2714;}$$     | $${\color{lightgreen}&#x2714;}$$  | $${\color{red}&#x2718;}$$ (only possible relying on Azure last modified time) |
+| TimeBasedPartitioner            | $${\color{red}&#x2718;}$$            | $${\color{lightgreen}&#x2714;}$$  | $${\color{lightgreen}&#x2714;}$$  (based on folder names in storage)          |
+| FieldPartitioner                | $${\color{lightgreen}&#x2714;}$$     | $${\color{red}&#x2718;}$$         | $${\color{lightgreen}&#x2714;}$$  (based on folder names in storage)          |
+| DefaultPartitioner + custom SMT | $${\color{lightgreen}&#x2714;}$$     | $${\color{lightgreen}&#x2714;}$$  | $${\color{lightgreen}&#x2714;}$$  (based on custom SMT)                       |
 
 ---
 
