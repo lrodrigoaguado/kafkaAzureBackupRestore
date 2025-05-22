@@ -225,7 +225,7 @@ curl -s -D - -o /dev/null -X PUT -H "Accept:application/json" \
       "transforms"                         : "AddPrefix",
       "transforms.AddPrefix.type"          : "org.apache.kafka.connect.transforms.RegexRouter",
       "transforms.AddPrefix.regex"         : ".*",
-      "transforms.AddPrefix.replacement"   : "default-partitioner-source-1task-copy-of-$0",
+      "transforms.AddPrefix.replacement"   : "default-partitioner-source-1task-copy-of-\$0",
       "azblob.account.name"                : "\${YOUR_ACCOUNT_NAME}",
       "azblob.account.key"                 : "\${YOUR_ACCOUNT_KEY}",
       "azblob.container.name"              : "\${TEST1_CONTAINER_NAME}"
@@ -255,7 +255,7 @@ curl -s -D - -o /dev/null -X PUT -H "Accept:application/json" \
       "transforms"                         : "AddPrefix",
       "transforms.AddPrefix.type"          : "org.apache.kafka.connect.transforms.RegexRouter",
       "transforms.AddPrefix.regex"         : ".*",
-      "transforms.AddPrefix.replacement"   : "default-partitioner-source-4tasks-copy-of-$0",
+      "transforms.AddPrefix.replacement"   : "default-partitioner-source-4tasks-copy-of-\$0",
       "azblob.account.name"                : "\${YOUR_ACCOUNT_NAME}",
       "azblob.account.key"                 : "\${YOUR_ACCOUNT_KEY}",
       "azblob.container.name"              : "\${TEST1_CONTAINER_NAME}"
@@ -331,7 +331,7 @@ curl -s -D - -o /dev/null \
       "transforms"                         : "AddPrefix",
       "transforms.AddPrefix.type"          : "org.apache.kafka.connect.transforms.RegexRouter",
       "transforms.AddPrefix.regex"         : ".*",
-      "transforms.AddPrefix.replacement"   : "timebased-partitioner-copy-of-$0",
+      "transforms.AddPrefix.replacement"   : "timebased-partitioner-copy-of-\$0",
       "azblob.account.name"                : "\${YOUR_ACCOUNT_NAME}",
       "azblob.account.key"                 : "\${YOUR_ACCOUNT_KEY}",
       "azblob.container.name"              : "\${TEST2_CONTAINER_NAME}"
