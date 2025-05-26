@@ -11,6 +11,7 @@
     - [Step 2: Create a Storage Account (if you don’t already have one)](#step-2-create-a-storage-account-if-you-dont-already-have-one)
     - [Step 3: Create the Containers](#step-3-create-the-containers)
     - [Step 4: Get Storage Account Key](#step-4-get-storage-account-key)
+    - [Step 5: Configure environment variables](#step-5-configure-environment-variables)
   - [Setup Connect](#setup-connect)
   - [Setup Topics](#setup-topics)
 - [Testing the options](#testing-the-options)
@@ -19,8 +20,8 @@
   - [Backup/Restore option 2: TimeBasedPartitioner](#backuprestore-option-2-timebasedpartitioner)
   - [Backup/Restore option 3: Parallel Recovery with Field Partitioner](#backuprestore-option-3-parallel-recovery-with-field-partitioner)
   - [Backup/Restore option 4: Parallel Recovery with Default Partitioner and Between Dates](#backuprestore-option-4-parallel-recovery-with-default-partitioner-and-between-dates)
-  - [Summary](#summary)
     - [Avoiding having to validate too many files from Azure](#avoiding-having-to-validate-too-many-files-from-azure)
+  - [Summary](#summary)
 - [Cleanup](#cleanup)
 
 ## Objectives
@@ -48,20 +49,7 @@ You will need a working Azure account and a local environment with docker, java 
 
 ## Setup Azure
 
-To run this demo, you will need:
-
-- `YOUR_ACCOUNT_NAME`: Name of your storage account
-- `YOUR_ACCOUNT_KEY`: Access key of your storage account
-- `TEST1_CONTAINER_NAME`: Name of the container you will create for test 1
-- `TEST2_CONTAINER_NAME`: Name of the container you will create for test 2
-- `TEST3_CONTAINER_NAME`: Name of the container you will create for test 3
-- `TEST4_CONTAINER_NAME`: Name of the container you will create for test 4
-
-Create environment variables with that names and the appropriate values for your Azure account in your session before executing the commands in the demo. If you are going to run the demo several times, populate the file "setup_env.sh" with the values and the run:
-
-```bash
-source ./setup_eenv.sh
-```
+For this demo you will need to create four different Blob containers in an Storage Account of Azure. You can follow these steps:
 
 ### Step 1: Sign in to Azure Portal
 
@@ -95,14 +83,24 @@ Once deployed, go to the Storage account you just created.
 2. You’ll see key1 and key2. Click Show keys to view the values.
 3. Copy the Key value (either key1 or key2) — this is your `YOUR_ACCOUNT_KEY`.
 
-## Setup Connect
+### Step 5: Configure environment variables
 
-Build a custom SMT that will be used in one of the tests:
+Once you have created the containers, you need to configure the Azure access data and the continer names as environment variables, as:
+
+- `YOUR_ACCOUNT_NAME`: Name of your storage account
+- `YOUR_ACCOUNT_KEY`: Access key of your storage account
+- `TEST1_CONTAINER_NAME`: Name of the container you will create for test 1
+- `TEST2_CONTAINER_NAME`: Name of the container you will create for test 2
+- `TEST3_CONTAINER_NAME`: Name of the container you will create for test 3
+- `TEST4_CONTAINER_NAME`: Name of the container you will create for test 4
+
+You can manually create the environment variables with that names and the appropriate values for your Azure account or, if you are going to run the demo several times, populate the file "setup_env.sh" with the values and then run:
 
 ```bash
-mvn clean install
-cp target/timestampBetween-1.0-SNAPSHOT-jar-with-dependencies.jar plugins
+source ./setup_env.sh
 ```
+
+## Setup Connect
 
 Start containers.
 
@@ -110,13 +108,7 @@ Start containers.
 docker compose up -d
 ```
 
-And confirm the transformer is available to be used by executing:
-
-```bash
-docker compose logs kafka-connect-1 | grep FilterByFieldTimestamp
-```
-
-Then execute:
+Then execute the following commands to install the Datagen and Azure Blob Storage Source and Sink connectors:
 
 ```bash
 docker compose exec kafka-connect-1 confluent-hub install --no-prompt confluentinc/kafka-connect-azure-blob-storage:latest
@@ -124,16 +116,17 @@ docker compose exec kafka-connect-1 confluent-hub install --no-prompt confluenti
 docker compose exec kafka-connect-1 confluent-hub install --no-prompt confluentinc/kafka-connect-datagen:latest
 ```
 
-Restart connect:
+Now build a custom SMT that will be used in one of the tests:
+
+```bash
+mvn clean install
+cp target/timestampBetween-1.0-SNAPSHOT-jar-with-dependencies.jar plugins/
+```
+
+And restart connect:
 
 ```bash
 docker compose restart kafka-connect-1
-```
-
-List connector plugins:
-
-```bash
-curl localhost:8083/connector-plugins | jq
 ```
 
 ## Setup Topics
@@ -200,7 +193,7 @@ EOF
 
 ```
 
-If successful, you will see that the curl command returns a 201 status, together with the configuration of the sink connector just created.
+If successful, you will see that the curl command returns a "201 Created" status, together with the configuration of the sink connector just created.
 
 Let the sink connector do its job, and once it is completed, you can pause it either via web, or running:
 
@@ -476,8 +469,8 @@ curl -s -D - -o /dev/null -X PUT -H "Accept:application/json" \
       "transforms.AddPrefix.replacement"       : "default-partitioner-withSMT-copy-of-\$0",
       "transforms.filterByTime.type"           : "io.confluent.csta.timestamp.transforms.FilterByFieldTimestamp",
       "transforms.filterByTime.timestamp.field": "event_timestamp",
-      "transforms.filterByTime.start.datetime" : "20250516131200",
-      "transforms.filterByTime.end.datetime"   : "20250516131400",
+      "transforms.filterByTime.start.datetime" : "20240516131200",
+      "transforms.filterByTime.end.datetime"   : "20250716131400",
       "transforms.dropField.type"              : "org.apache.kafka.connect.transforms.ReplaceField\$Value",
       "transforms.dropField.blacklist"         : "event_timestamp",
       "azblob.account.name"                    : "\${YOUR_ACCOUNT_NAME}",
@@ -496,20 +489,6 @@ This custom SMT is only meant to be an example of what you can do.
 
 ---
 
-## Summary
-The four alternatives shown present pros and cons and the specific use case should guide on which option to use.
-
-The following table summarizes the main characteristics:
-
-| Partitioner                     | Parallelism                          | Ordering                          | Time based backup filtering                                                   |
-| ------------------------------- | ------------------------------------ | --------------------------------  | ----------------------------------------------------------------------------- |
-| DefaultPartitioner              | $${\color{lightgreen}&#x2714;}$$     | $${\color{lightgreen}&#x2714;}$$  | $${\color{red}&#x2718;}$$ (only possible relying on Azure last modified time) |
-| TimeBasedPartitioner            | $${\color{red}&#x2718;}$$            | $${\color{lightgreen}&#x2714;}$$  | $${\color{lightgreen}&#x2714;}$$  (based on folder names in storage)          |
-| FieldPartitioner                | $${\color{lightgreen}&#x2714;}$$     | $${\color{red}&#x2718;}$$         | $${\color{lightgreen}&#x2714;}$$  (based on folder names in storage)          |
-| DefaultPartitioner + custom SMT | $${\color{lightgreen}&#x2714;}$$     | $${\color{lightgreen}&#x2714;}$$  | $${\color{lightgreen}&#x2714;}$$  (based on custom SMT)                       |
-
----
-
 ### Avoiding having to validate too many files from Azure
 
 Besides having proper retention periods in the Azure Blob Storage you can also leverage copying only the possibly relevant files from one container to another as a previous step for the recovery. This way the overall event set will be much more limmited and the performance impact of the validation will be restricted just to double check that events really sit on your desired (sub)interval. In some scenarios this step alone may be even enough with no need to use the custom SMT.
@@ -523,8 +502,24 @@ References:
 All of this can also be done programatically through scripting or leveraging Azure language SDKs. (example: Python sdk https://learn.microsoft.com/en-us/azure/developer/python/sdk/azure-sdk-overview)
 
 ---
+
+## Summary
+The four alternatives shown present pros and cons and the specific use case should guide on which option to use.
+
+The following table summarizes the main characteristics:
+
+| Partitioner                     | Parallelism                          | Ordering                          | Time based backup filtering                                                   |
+| ------------------------------- | ------------------------------------ | --------------------------------  | ----------------------------------------------------------------------------- |
+| DefaultPartitioner              | $${\color{lightgreen}&#x2714;}$$     | $${\color{lightgreen}&#x2714;}$$  | $${\color{red}&#x2718;}$$ (only possible relying on Azure last modified time) |
+| TimeBasedPartitioner            | $${\color{red}&#x2718;}$$            | $${\color{lightgreen}&#x2714;}$$  | $${\color{lightgreen}&#x2714;}$$  (based on folder names in storage)          |
+| FieldPartitioner                | $${\color{lightgreen}&#x2714;}$$     | $${\color{red}&#x2718;}$$         | $${\color{lightgreen}&#x2714;}$$  (based on folder names in storage)          |
+| DefaultPartitioner + custom SMT | $${\color{lightgreen}&#x2714;}$$     | $${\color{lightgreen}&#x2714;}$$  | $${\color{lightgreen}&#x2714;}$$  (based on custom SMT)                       |
+
+---
 # Cleanup
 
 ```bash
 docker compose down -v
+rm -rf plugins
+rm -rf target
 ```
