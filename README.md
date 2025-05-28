@@ -37,7 +37,7 @@ It's only meant to serve as an example or reference and does not replace the nee
 ## Limitations
 
 A thorough review of the documentation reveals the following limitations:
-- The Sink connector currently does not write keys or headers to storage.
+- The Sink connector currently does not write keys or headers to storage, it only stores the messages values.
 - The Sink connector does not currently support Single Message Transformations (SMTs) that modify the topic name, neither any of these:
   - `io.debezium.transforms.ByLogicalTableRouter`
   - `io.debezium.transforms.outbox.EventRouter`
