@@ -3,6 +3,7 @@
 - [Backup and Restore Azure Blob Storage Source Connector for Confluent Platform](#backup-and-restore-azure-blob-storage-source-connector-for-confluent-platform)
   - [Objectives](#objectives)
   - [Disclaimer](#disclaimer)
+  - [Limitations](#limitations)
   - [References](#references)
 - [Initial Setup](#initial-setup)
   - [Prerequisites](#prerequisites)
@@ -32,6 +33,22 @@ The objective of this repo is to test the different capabilities of the existing
 
 The code and/or instructions here available are **NOT** intended for production usage.
 It's only meant to serve as an example or reference and does not replace the need to follow actual and official documentation of referenced products.
+
+## Limitations
+
+A thorough review of the documentation reveals the following limitations:
+- The Sink connector currently does not write keys or headers to storage.
+- The Sink connector does not currently support Single Message Transformations (SMTs) that modify the topic name, neither any of these:
+  - `io.debezium.transforms.ByLogicalTableRouter`
+  - `io.debezium.transforms.outbox.EventRouter`
+  - `org.apache.kafka.connect.transforms.RegexRouter`
+  - `org.apache.kafka.connect.transforms.TimestampRouter`
+  - `io.confluent.connect.transforms.MessageTimestampRouter`
+  - `io.confluent.connect.transforms.ExtractTopic$Key`
+  - `io.confluent.connect.transforms.ExtractTopic$Value`
+
+- In the Source connector, for the TimeBasedPartitioner, the capacity to scale the connector across various time ranges is limited in Backup and Restore mode. Currently, the connector does not support processing data that spans several years.
+- In the Source connector, if a FieldPartitioner is used, it isn’t possible to guarantee the order of the messages.
 
 ## References
 
