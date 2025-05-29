@@ -525,7 +525,7 @@ The four alternatives shown present pros and cons and the specific use case shou
 
 The following table summarizes the main characteristics:
 
-| Partitioner                     | Parallelism                          | Ordering                          | Time based backup filtering                                                   |
+| Partitioner                     | Parallelism                          | Ordering                          | Time based backup filtering (on restore)                                      |
 | ------------------------------- | ------------------------------------ | --------------------------------  | ----------------------------------------------------------------------------- |
 | DefaultPartitioner              | $${\color{lightgreen}&#x2714;}$$     | $${\color{lightgreen}&#x2714;}$$  | $${\color{red}&#x2718;}$$ (only possible relying on Azure last modified time) |
 | TimeBasedPartitioner            | $${\color{red}&#x2718;}$$            | $${\color{lightgreen}&#x2714;}$$  | $${\color{lightgreen}&#x2714;}$$  (based on folder names in storage)          |
