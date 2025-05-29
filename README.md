@@ -49,6 +49,7 @@ A thorough review of the documentation reveals the following limitations:
 
 - In the Source connector, for the TimeBasedPartitioner, the capacity to scale the connector across various time ranges is limited in Backup and Restore mode. Currently, the connector does not support processing data that spans several years.
 - In the Source connector, if a FieldPartitioner is used, it isn’t possible to guarantee the order of the messages.
+- In the Source connector, if a TimeBasedPartitioner is used in the BACKUP_RESTORE mode, only one task will be launched, despite the value configured in the `"tasks.max"` parameter.
 
 ## References
 
