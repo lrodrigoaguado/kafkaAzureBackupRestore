@@ -509,7 +509,7 @@ This custom SMT is only meant to be an example of what you can do.
 
 ### Avoiding having to validate too many files from Azure
 
-Besides having proper retention periods in the Azure Blob Storage you can also leverage copying only the possibly relevant files from one container to another as a previous step for the recovery. This way the overall event set will be much more limmited and the performance impact of the validation will be restricted just to double check that events really sit on your desired (sub)interval. In some scenarios this step alone may be even enough with no need to use the custom SMT.
+Besides having proper retention periods in the Azure Blob Storage you can also leverage copying only the possibly relevant files from one container to another as a previous step for the recovery. This way the overall event set will be much more limited and the performance impact of the validation will be restricted just to double check that events really sit on your desired (sub)interval. In some scenarios this step alone may be even enough with no need to use the custom SMT.
 
 References:
 
